@@ -1,0 +1,33 @@
+schema: spec-driven
+context: |
+  项目：rf，跨平台路径与文件剪贴板工具，独立于 Window Top。
+  行为来源：用户 ~/.zshrc 中的 rf() 和 rff()。
+  rf [path]：解析绝对路径，将路径作为纯文本复制到剪贴板，并输出路径；无参默认为当前目录。
+  rf -f [path]：文件模式，复制文件引用；目录先打包为 tar，再复制归档文件引用。
+  rff 等价于 rf -f，可作为 shell alias。
+  用户最终要求简单 CLI；本次仅实现本地 macOS，不包含 TUI/GUI，其他平台后续再议。
+  无参 CLI 保留当前目录语义。
+  共享路径解析、归档与复制业务逻辑，平台剪贴板实现独立适配。
+  文件引用不等于路径文本，也不等于文件内容；不能静默降级为文本并报告文件复制成功。
+  目标应用能否接受文件粘贴需要实测，不保证所有上传框支持。
+  技术栈采用 Rust；通过 crates.io 发布单一 rf-copy crate，cargo install rf-copy --locked 安装 rf/rff 两个 CLI 命令。不修改用户 shell 配置。
+  CLI 的帮助、提示和错误，以及 README 和发布文档统一使用英文；保留 Unicode 路径支持。内部 OpenSpec 规划记录可使用中文。
+
+# Project context (optional)
+# This is shown to AI when creating artifacts.
+# Add your tech stack, conventions, style guides, domain knowledge, etc.
+# Example:
+#   context: |
+#     Tech stack: TypeScript, React, Node.js
+#     We use conventional commits
+#     Domain: e-commerce platform
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always include a "Non-goals" section
+#     tasks:
+#       - Break tasks into chunks of max 2 hours

@@ -1,0 +1,45 @@
+[package]
+name = "rf-copy"
+version = "0.1.2"
+edition = "2024"
+default-run = "rf"
+rust-version = "1.95"
+description = "Copy paths or file references to the macOS clipboard; archive directories as tar files"
+license = "GPL-3.0-only"
+repository = "https://github.com/www159-used/rf"
+readme = "README.md"
+keywords = ["clipboard", "path", "cli", "macos", "tar"]
+categories = ["command-line-utilities"]
+publish = ["crates-io"]
+include = [
+    "src/**", "tests/**", "Cargo.toml", "Cargo.lock", "README.md", "LICENSE",
+    "docs/**", "scripts/smoke-macos.py", "scripts/pasteboard.swift",
+]
+
+[[bin]]
+name = "rf"
+path = "src/bin/rf.rs"
+
+[[bin]]
+name = "rff"
+path = "src/bin/rff.rs"
+
+[dependencies]
+clap = { version = "4.6", features = ["derive"] }
+thiserror = "2"
+directories = "6"
+fs2 = "0.4"
+tar = "0.4"
+tempfile = "3"
+walkdir = "2"
+libc = "0.2"
+ctrlc = "3"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSArray", "NSString", "NSURL"] }
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSPasteboard"] }
+
+[profile.release]
+strip = true
+lto = "thin"
