@@ -1,5 +1,7 @@
 # rf-copy
 
+[![CI](https://github.com/www159-used/rf/actions/workflows/macos.yml/badge.svg)](https://github.com/www159-used/rf/actions/workflows/macos.yml)
+
 Copy a path or file reference to the macOS clipboard from your terminal.
 
 ```sh
@@ -76,10 +78,8 @@ Uninstalling the commands leaves stored archives in place. Run archive cleanup f
 ## Development
 
 ```sh
-cargo fmt --all --check
-cargo clippy --all-targets --locked -- -D warnings
-cargo test --locked
-cargo publish --dry-run --locked
+bash scripts/check.sh
+cargo package --locked
 ```
 
 To test against the real macOS clipboard:
@@ -90,6 +90,8 @@ python3 scripts/smoke-macos.py --bin-dir target/release
 ```
 
 The smoke test temporarily changes the clipboard and restores its readable contents when finished. Avoid other clipboard activity during the test. Native format reads have been verified; actual Finder paste remains a separate manual check. See the validation and publishing notes in the package's `docs/` directory.
+
+GitHub CI runs checks and verifies installation on Apple Silicon and Intel macOS. Maintainers use [cargo-release](docs/publishing.md) to publish to crates.io and push version tags.
 
 ## License
 

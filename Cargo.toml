@@ -13,7 +13,7 @@ categories = ["command-line-utilities"]
 publish = ["crates-io"]
 include = [
     "src/**", "tests/**", "Cargo.toml", "Cargo.lock", "README.md", "LICENSE",
-    "docs/**", "scripts/smoke-macos.py", "scripts/pasteboard.swift",
+    "docs/**", "scripts/check.sh", "scripts/smoke-macos.py", "scripts/pasteboard.swift",
 ]
 
 [[bin]]

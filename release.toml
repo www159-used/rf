@@ -1,0 +1,11 @@
+# Tested with cargo-release 1.1.2. A plain `cargo release` is a dry run.
+allow-branch = ["main"]
+publish = true
+verify = true
+tag = true
+tag-name = "{{prefix}}v{{version}}"
+tag-message = "Release {{crate_name}} {{version}}"
+push = true
+push-remote = "origin"
+pre-release-commit-message = "chore: release"
+pre-release-hook = ["bash", "scripts/check.sh"]
