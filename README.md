@@ -78,20 +78,23 @@ Uninstalling the commands leaves stored archives in place. Run archive cleanup f
 ## Development
 
 ```sh
-bash scripts/check.sh
-cargo package --locked
+make help           # List development commands
+make check          # Formatting, Clippy, and tests
+make build-release  # Build optimized rf and rff binaries
+make package        # Verify the crates.io package
 ```
 
 To test against the real macOS clipboard:
 
 ```sh
-cargo build --release --locked
-python3 scripts/smoke-macos.py --bin-dir target/release
+make smoke
 ```
 
 The smoke test temporarily changes the clipboard and restores its readable contents when finished. Avoid other clipboard activity during the test. Native format reads have been verified; actual Finder paste remains a separate manual check. See the validation and publishing notes in the package's `docs/` directory.
 
 GitHub CI runs checks and verifies installation on Apple Silicon and Intel macOS. Maintainers use [cargo-release](docs/publishing.md) to publish to crates.io and push version tags.
+
+Run `make tools` to install cargo-release, `make release` to preview the prepared version, and `make publish` to publish it. For a version bump, use the same `RELEASE_LEVEL=patch` (or `minor` / `major`) with both commands. `make publish` also creates a Git tag and pushes to `origin`.
 
 ## License
 
