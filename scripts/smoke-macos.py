@@ -90,7 +90,14 @@ with tempfile.TemporaryDirectory(prefix='rf-smoke-') as folder:
             stream.truncate(2 * 1024**3)
         baseline = set((root / 'data/archives').glob('rf-job-*'))
         old = files()
-        process = subprocess.Popen([rf, '-f', large], env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        for command in ([rf, '-f', large], [rff, large]):
+            refused = subprocess.run(command, env=env, capture_output=True)
+            assert refused.returncode == 1 and not refused.stdout
+            assert b'--allow-large' in refused.stderr
+            assert files() == old
+            assert set((root / 'data/archives').glob('rf-job-*')) == baseline
+        passed('large directory refused before archiving; clipboard unchanged')
+        process = subprocess.Popen([rf, '-f', '--allow-large', large], env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         deadline = time.monotonic() + 10
         while not list((root / 'data/archives').glob('rf-job-*/archive.part')):
             assert process.poll() is None and time.monotonic() < deadline

@@ -6,7 +6,7 @@ Environment: macOS 26.1 (25B78), Apple Silicon arm64, Rust 1.95.0.
 
 Rust tests cover argument parsing, path resolution, text and file modes, tar contents, symbolic links, exclusion of archive storage, permission and special-file errors, cancellation cleanup, unique archive names, cleanup locking, and filesystem boundaries.
 
-`scripts/smoke-macos.py` runs against the real clipboard with separate writer and reader processes. Its 11 checks cover:
+`scripts/smoke-macos.py` runs against the real clipboard with separate writer and reader processes. Its 12 checks cover:
 
 1. The current directory when no path is given.
 2. Unicode, whitespace, quotes, newlines, and URI-special characters.
@@ -17,8 +17,9 @@ Rust tests cover argument parsing, path resolution, text and file modes, tar con
 7. Directory archive contents, including empty directories and symbolic links.
 8. Preservation of the clipboard when path resolution fails.
 9. Concurrent archive creation.
-10. Cancellation with a real SIGINT.
-11. Cleanup preview and deletion.
+10. Large-directory refusal in both commands, preserving the clipboard and stored archives.
+11. Cancellation with a real SIGINT after explicitly allowing a large archive.
+12. Cleanup preview and deletion.
 
 The smoke test uses a temporary data directory and restores the clipboard contents it could read before the test.
 

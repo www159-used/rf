@@ -40,6 +40,15 @@ rf -- -file.txt        # Handle a path that starts with a dash
 
 `rff` is equivalent to `rf -f`. Both commands use the current directory when no path is given.
 
+Before archiving a directory, both commands scan its metadata and stop with an error if its regular files total **512 MiB or more**, or it contains **10,000 entries or more** (including the top-level directory). The clipboard stays unchanged. Check the path, then explicitly allow a large archive if intended:
+
+```sh
+rff --allow-large ./large-project
+rf -f --allow-large ./large-project
+```
+
+The scan stops at the first limit, counts logical file sizes (including sparse files), skips archive storage, and does not follow internal symbolic links. Limits are checked again during archiving to catch directory growth. `--allow-large` skips these limits; Ctrl-C still cancels the operation. Copying a regular file reference or path text does not require archiving and is unaffected. These limits are a guard against accidental large archives, not an exact estimate of tar size or available disk space.
+
 On success, stdout contains the absolute path that was copied, followed by a newline. For a directory in file mode, this is the generated tar path. Clipboard text has no added newline. Errors go to stderr and return a nonzero exit code. A failed file copy never silently falls back to path text.
 
 Paths may contain Unicode characters, spaces, quotes, or newlines. Relative paths resolve against the working directory. A symbolic link passed as the input resolves to its target; links inside an archived directory are preserved without following them. Only existing regular files and directories are accepted.

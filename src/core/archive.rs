@@ -8,6 +8,48 @@ use std::{
 use tempfile::TempDir;
 use walkdir::WalkDir;
 
+const LARGE_BYTES: u64 = 512 * 1024 * 1024;
+const LARGE_ENTRIES: u64 = 10_000;
+
+fn check_archive_size(source: &Path, entries: u64, bytes: u64) -> Result<()> {
+    if bytes >= LARGE_BYTES || entries >= LARGE_ENTRIES {
+        return Err(Error::Message(format!(
+            "Large directory: {} (at least {entries} entries, {bytes} bytes). \
+             Archiving stopped at the 512 MiB / 10,000-entry safety limit. \
+             Check the path and retry with --allow-large to proceed.",
+            source.display()
+        )));
+    }
+    Ok(())
+}
+
+fn traversal(
+    source: &Path,
+    root: &Path,
+) -> impl Iterator<Item = walkdir::Result<walkdir::DirEntry>> {
+    WalkDir::new(source)
+        .follow_links(false)
+        .into_iter()
+        .filter_entry(move |e| e.path() != root)
+}
+
+// Only inspect metadata, stopping as soon as either limit is reached.
+// No archive job or tar file exists yet; internal symlink targets are not visited.
+fn preflight(source: &Path, root: &Path, cancel: &Cancellation) -> Result<()> {
+    let mut bytes = 0_u64;
+    for (index, entry) in traversal(source, root).enumerate() {
+        cancel.check()?;
+        let entry = entry.map_err(|e| Error::Message(format!("Cannot scan the directory: {e}")))?;
+        let meta = fs::symlink_metadata(entry.path())
+            .map_err(|e| io_error(format!("Cannot inspect {}", entry.path().display()), e))?;
+        if meta.is_file() {
+            bytes = bytes.saturating_add(meta.len());
+        }
+        check_archive_size(source, index as u64 + 1, bytes)?;
+    }
+    cancel.check()
+}
+
 #[derive(Clone, Debug)]
 pub struct ArchiveStore {
     root: PathBuf,
@@ -84,6 +126,7 @@ impl ArchiveStore {
     pub(crate) fn create(
         &self,
         source: &Path,
+        allow_large: bool,
         cancel: &Cancellation,
         progress: &mut impl FnMut(Progress),
     ) -> Result<PendingArchive> {
@@ -94,6 +137,9 @@ impl ArchiveStore {
             return Err(Error::Message(
                 "Cannot archive the archive storage directory or any of its subdirectories".into(),
             ));
+        }
+        if !allow_large {
+            preflight(source, &root, cancel)?;
         }
         let dir = tempfile::Builder::new()
             .prefix("rf-job-")
@@ -109,11 +155,7 @@ impl ArchiveStore {
         let mut builder = tar::Builder::new(file);
         builder.follow_symlinks(false);
         let mut state = Progress::default();
-        let traversal = WalkDir::new(source)
-            .follow_links(false)
-            .into_iter()
-            .filter_entry(|e| e.path() != root);
-        for entry in traversal {
+        for entry in traversal(source, &root) {
             cancel.check()?;
             let entry =
                 entry.map_err(|e| Error::Message(format!("Cannot traverse the directory: {e}")))?;
@@ -122,6 +164,9 @@ impl ArchiveStore {
             let dest = Path::new(name).join(relative);
             let meta = fs::symlink_metadata(src)
                 .map_err(|e| io_error(format!("Cannot read {}", src.display()), e))?;
+            if !allow_large {
+                check_archive_size(source, state.entries + 1, state.bytes)?;
+            }
             if meta.is_dir() {
                 builder
                     .append_dir(&dest, src)
@@ -152,6 +197,14 @@ impl ArchiveStore {
                     .map_err(|e| io_error("Cannot read file metadata", e))?;
                 if !before.is_file() {
                     return Err(Error::Message("File type changed while archiving".into()));
+                }
+                // Recheck while archiving in case the tree grew after preflight.
+                if !allow_large {
+                    check_archive_size(
+                        source,
+                        state.entries + 1,
+                        state.bytes.saturating_add(before.len()),
+                    )?;
                 }
                 let mut header = tar::Header::new_gnu();
                 header.set_metadata(&before);

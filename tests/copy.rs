@@ -33,6 +33,7 @@ fn request(path: &Path, mode: CopyMode) -> CopyRequest {
     CopyRequest {
         path: path.into(),
         mode,
+        allow_large: false,
     }
 }
 fn setup() -> (tempfile::TempDir, PathBuf, ArchiveStore) {
@@ -267,4 +268,117 @@ mod unix {
         symlink(store.root(), &alias).unwrap();
         assert!(ArchiveStore::new(alias).clean(true).is_err());
     }
+}
+
+#[test]
+fn entry_limit_requires_explicit_override() {
+    let temp = tempfile::tempdir().unwrap();
+    let source = temp.path().join("many");
+    fs::create_dir(&source).unwrap();
+    // The source directory itself counts as one archive entry.
+    for index in 0..9_999 {
+        fs::File::create(source.join(index.to_string())).unwrap();
+    }
+    let store = ArchiveStore::new(temp.path().join("store"));
+    let cancel = Cancellation::default();
+    let error = prepare(request(&source, CopyMode::File), &store, &cancel, |_| {})
+        .err()
+        .expect("entry limit must reject the archive");
+    assert!(error.to_string().contains("--allow-large"));
+    assert!(store.clean(false).unwrap().is_empty());
+
+    let mut allowed = request(&source, CopyMode::File);
+    allowed.allow_large = true;
+    let mut clipboard = Clipboard::default();
+    let result = prepare(allowed, &store, &cancel, |_| {})
+        .unwrap()
+        .commit(&mut clipboard, &cancel)
+        .unwrap();
+    let mut archive = tar::Archive::new(fs::File::open(&result.copied_path).unwrap());
+    assert_eq!(archive.entries().unwrap().count(), 10_000);
+    assert_eq!(clipboard.file.as_ref(), Some(&result.copied_path));
+}
+
+#[test]
+fn growth_after_preflight_still_stops_and_removes_the_partial_archive() {
+    let (_temp, source, store) = setup();
+    let file = source.join("a.txt");
+    let mut grew = false;
+    let result = prepare(
+        request(&source, CopyMode::File),
+        &store,
+        &Cancellation::default(),
+        |progress| {
+            if !grew && progress.entries == 1 {
+                fs::OpenOptions::new()
+                    .write(true)
+                    .open(&file)
+                    .unwrap()
+                    .set_len(512 * 1024 * 1024)
+                    .unwrap();
+                grew = true;
+            }
+        },
+    );
+    assert!(grew);
+    assert!(result.err().unwrap().to_string().contains("--allow-large"));
+    assert!(store.clean(false).unwrap().is_empty());
+}
+
+#[test]
+#[cfg(unix)]
+fn size_scan_excludes_storage_and_does_not_follow_internal_links() {
+    let (temp, source, _store) = setup();
+    let store = ArchiveStore::new(source.join("stored-archives"));
+    fs::create_dir(store.root()).unwrap();
+    for path in [store.root().join("old.tar"), temp.path().join("outside")] {
+        fs::File::create(path)
+            .unwrap()
+            .set_len(512 * 1024 * 1024)
+            .unwrap();
+    }
+    std::os::unix::fs::symlink(temp.path().join("outside"), source.join("link")).unwrap();
+    let prepared = prepare(
+        request(&source, CopyMode::File),
+        &store,
+        &Cancellation::default(),
+        |_| {},
+    )
+    .unwrap();
+    drop(prepared);
+    assert!(store.clean(false).unwrap().is_empty());
+}
+
+#[test]
+fn size_limit_sums_files_but_does_not_block_references_or_text() {
+    let (_temp, source, store) = setup();
+    let cancel = Cancellation::default();
+    for name in ["one", "two"] {
+        fs::File::create(source.join(name))
+            .unwrap()
+            .set_len(256 * 1024 * 1024)
+            .unwrap();
+    }
+    assert!(
+        prepare(request(&source, CopyMode::File), &store, &cancel, |_| {})
+            .err()
+            .unwrap()
+            .to_string()
+            .contains("--allow-large")
+    );
+    let big_file = source.join("one");
+    fs::OpenOptions::new()
+        .write(true)
+        .open(&big_file)
+        .unwrap()
+        .set_len(512 * 1024 * 1024)
+        .unwrap();
+    for (path, mode) in [(&source, CopyMode::Text), (&big_file, CopyMode::File)] {
+        let result = prepare(request(path, mode), &store, &cancel, |_| {})
+            .unwrap()
+            .commit(&mut Clipboard::default(), &cancel)
+            .unwrap();
+        assert!(!result.archive);
+    }
+    assert!(store.clean(false).unwrap().is_empty());
 }

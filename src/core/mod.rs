@@ -48,6 +48,7 @@ impl CopyMode {
 pub struct CopyRequest {
     pub path: PathBuf,
     pub mode: CopyMode,
+    pub allow_large: bool,
 }
 #[derive(Debug)]
 pub struct CopyResult {
@@ -138,7 +139,7 @@ pub fn prepare(
     cancel.check()?;
     let source = resolve(&request.path)?;
     let archive = if request.mode == CopyMode::File && source.is_dir() {
-        Some(store.create(&source, cancel, &mut progress)?)
+        Some(store.create(&source, request.allow_large, cancel, &mut progress)?)
     } else {
         None
     };

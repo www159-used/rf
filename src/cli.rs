@@ -16,6 +16,9 @@ struct Args {
     /// Copy a file reference instead of path text (the default for rff)
     #[arg(short = 'f', long)]
     file: bool,
+    /// Allow directory archives of 512 MiB or more, or 10,000 entries or more
+    #[arg(long, conflicts_with = "clean_archives")]
+    allow_large: bool,
     /// List stored archives; add --yes to delete them
     #[arg(long, conflicts_with_all = ["path", "file"])]
     clean_archives: bool,
@@ -70,7 +73,12 @@ fn run(args: Args, default_file: bool) -> crate::core::Result<()> {
     ctrlc::set_handler(move || signal.cancel())
         .map_err(|e| Error::Message(format!("Cannot register the interrupt handler: {e}")))?;
     let mut last = std::time::Instant::now();
-    let prepared = crate::core::prepare(CopyRequest { path, mode }, &store, &cancel, |p| {
+    let request = CopyRequest {
+        path,
+        mode,
+        allow_large: args.allow_large,
+    };
+    let prepared = crate::core::prepare(request, &store, &cancel, |p| {
         if io::stderr().is_terminal() && last.elapsed().as_millis() > 150 {
             eprint!("\rArchiving: {} entries / {} bytes", p.entries, p.bytes);
             last = std::time::Instant::now();
@@ -104,8 +112,14 @@ mod tests {
             vec!["rf", "--clean-archives", "a"],
             vec!["rf", "--yes"],
             vec!["rf", "--clean-archives", "-f"],
+            vec!["rf", "--clean-archives", "--allow-large"],
         ] {
             assert!(Args::try_parse_from(argv).is_err());
         }
+        assert!(
+            Args::try_parse_from(["rff", "--allow-large", "large"])
+                .unwrap()
+                .allow_large
+        );
     }
 }
