@@ -12,7 +12,7 @@ keywords = ["clipboard", "path", "cli", "macos", "tar"]
 categories = ["command-line-utilities"]
 publish = ["crates-io"]
 include = [
-    "src/**", "tests/**", "Cargo.toml", "Cargo.lock", "README.md", "LICENSE",
+    "src/**", "tests/**", "Cargo.toml", "Cargo.lock", "README.md", "LICENSE", "Makefile",
     "docs/**", "scripts/check.sh", "scripts/smoke-macos.py", "scripts/pasteboard.swift",
 ]
 

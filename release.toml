@@ -8,4 +8,4 @@ tag-message = "Release {{crate_name}} {{version}}"
 push = true
 push-remote = "origin"
 pre-release-commit-message = "chore: release"
-pre-release-hook = ["bash", "scripts/check.sh"]
+pre-release-hook = ["make", "check"]

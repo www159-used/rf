@@ -38,9 +38,9 @@ jobs:
           key: ${{ matrix.runner }}
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Check formatting, Clippy, and tests
-        run: bash scripts/check.sh
+        run: make check
       - name: Build and verify the crates.io package
-        run: cargo package --locked
+        run: make package
       - name: Verify Cargo installation from packaged sources
         shell: bash
         run: |
